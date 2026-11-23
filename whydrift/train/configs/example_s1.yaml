@@ -1,0 +1,16 @@
+# Example run config (Day-1 foundations). Every key is required; nulls are [OPEN].
+system: s1              # s1 | s2 | s3
+model: M3               # B1 | M1 | M2 | M3 | M2s | M3s | G3
+width: auto             # or an int; auto = width_for_params(target_params)
+target_params: null     # [OPEN]
+activation: tanh        # [OPEN] smooth activation for the autodiff models
+integrator: rk4         # rk4 | leapfrog (B1: none). Training and rollout must match
+rollout_integrator: rk4 # differs only in the single rk4 -> leapfrog mismatch cell
+dt: 0.1
+K: 1                    # [PROPOSED] grid 1, 5, 10, 20
+noise_sigma: 0.0        # nonzero value [OPEN]
+optimizer: {name: adam, lr: null, batch_size: null}   # [OPEN]
+updates: null           # [OPEN], set from the week-1 pilot
+ckpt_every: null        # [OPEN]
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+precision: float64      # [OPEN] float32 vs float64

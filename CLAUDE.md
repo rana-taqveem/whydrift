@@ -1,0 +1,1 @@
+See @README.md — it is the project spec and working rules.
