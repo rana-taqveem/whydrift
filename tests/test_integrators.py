@@ -21,6 +21,22 @@ def test_order_on_s1(s1, method, local_order):
     assert ratio == pytest.approx(2**local_order, rel=0.1)
 
 
+def global_error(system, method, h, x0, T=1.0):
+    xT = rollout(oracle_stepper(system, h, method), x0, int(round(T / h)))[:, -1]
+    return float(jnp.max(jnp.abs(xT - s1_exact(x0, T))))
+
+
+@pytest.mark.parametrize("method, order", [("rk4", 4), ("leapfrog", 2), ("euler", 1)])
+def test_global_order_on_s1(s1, method, order):
+    """Plan 1.3 / CI: halving dt over a fixed time cuts the error ~16x (RK4), ~4x (leapfrog), ~2x (Euler).
+
+    T = 1 keeps Euler in its asymptotic range; at T = 10 its energy growth pushes the ratio to ~2.3.
+    """
+    x0 = s1.sample_x0(8, (0.5, 1.0), seed=0)
+    ratio = global_error(s1, method, 0.1, x0) / global_error(s1, method, 0.05, x0)
+    assert ratio == pytest.approx(2**order, rel=0.05)
+
+
 def test_euler_s1_energy_factor(s1):
     """Euler on S1 multiplies energy by exactly 1 + h^2 per step."""
     x = s1.sample_x0(8, (0.1, 1.6), seed=1)

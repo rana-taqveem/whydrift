@@ -64,6 +64,45 @@ def test_regenerates_bit_identically(small_data, tmp_path):
             np.testing.assert_array_equal(a[k], b[k])
 
 
+def test_s1_matches_exact_solution(tmp_path_factory):
+    """Plan 1.2: spring data matches q = q0 cos t + p0 sin t to 1e-8, over the full 400 time units."""
+    out = tmp_path_factory.mktemp("s1_exact")
+    generate("s1", out, small=True)
+    for split in SPLITS["s1"]:
+        d = load_split("s1", split, out)
+        q0, p0, t = d["x0"][:, :1], d["x0"][:, 1:], d["t"]
+        exact = np.stack([q0 * np.cos(t) + p0 * np.sin(t), -q0 * np.sin(t) + p0 * np.cos(t)], axis=-1)
+        assert np.abs(d["states"] - exact).max() < 1e-8
+
+
+def test_load_split_subsamples_to_dt(small_data):
+    name, out, _ = small_data
+    full = load_split(name, "train", out)
+    for dt, k in [(0.05, 1), (0.1, 2), (0.2, 4), (0.4, 8)]:
+        d = load_split(name, "train", out, dt=dt, n_steps=100)
+        assert d["states"].shape[1] == 101
+        np.testing.assert_allclose(np.diff(d["t"]), dt, atol=1e-12)
+        np.testing.assert_array_equal(d["states"], full["states"][:, : 100 * k + 1 : k])
+        np.testing.assert_array_equal(d["energy"], full["energy"][:, : 100 * k + 1 : k])
+
+
+def test_load_split_refuses_bad_requests(small_data):
+    name, out, _ = small_data
+    with pytest.raises(ValueError, match="multiple"):
+        load_split(name, "train", out, dt=0.07)
+    with pytest.raises(ValueError, match="stops at"):
+        load_split(name, "train", out, dt=0.4, n_steps=1000)  # train covers 40, not 400
+    with pytest.raises(ValueError, match="needs dt"):
+        load_split(name, "train", out, n_steps=100)
+
+
+def test_audit_passes_on_generated_data(small_data):
+    from whydrift.physics.checks import audit
+    name, out, _ = small_data
+    rows = audit(name, out)
+    assert rows and all(r["ok"] for r in rows)
+
+
 def test_s3_has_no_split_plan_yet(tmp_path):
     with pytest.raises(ValueError, match="OPEN"):
         generate("s3", tmp_path, small=True, system_kwargs=dict(alpha=0.25, beta=0.0))

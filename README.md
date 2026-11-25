@@ -48,14 +48,15 @@ There is nothing to buy or download. We integrate the true equations with SciPy,
 | S2 pendulum | q̇ = p, ṗ = −sin q | E = ½p² + (1 − cos q); goes over the top at E = 2 |
 | S3 FPUT chain (8 masses, 16-number state) | **[PROPOSED]** α-FPUT, fixed ends q₀ = q₉ = 0 | E = Σ ½pᵢ² + Σ [½(q_{i+1}−q_i)² + (α/3)(q_{i+1}−q_i)³] |
 
-- Solver: `scipy.integrate.solve_ivp`, method `DOP853`, rtol and atol ≈ 1e-10.
-- Sampling interval: Δt = 0.1. **[PROPOSED]** store at 0.05 and subsample, because the Δt sweep starts at 0.05.
-- Per system (S1, S2): ≈500 training trajectories × 100 steps, 100 validation, 100 test initial conditions. Splits are disjoint.
+- Solver: `scipy.integrate.solve_ivp`, method `DOP853`, rtol = atol = **1e-12**. *Changed from ≈1e-10 on Nov 24:* with 400-time-unit test references, 1e-10 let S1 stray 1.05e-8 from the exact solution, over the 1e-8 check. 1e-12 gives 1.0e-10 and costs a few seconds.
+- Sampling: stored at Δt = 0.05 (implemented Nov 24). `load_split(system, split, dt=…, n_steps=…)` subsamples to a run's Δt; it is the one shared way to do this.
+- **Lengths are set in time, not steps** (Nov 24), so every Δt in the sweep up to 0.4 has its full horizon: training and validation trajectories cover 40 time units (100 steps at Δt = 0.4), test references cover 400 (1,000 steps at Δt = 0.4).
+- Per system (S1, S2): 500 training trajectories, 100 validation, 100 test initial conditions. Splits use distinct seeds and share no initial condition.
 - Test rollouts run 1,000 steps (10× the training horizon).
-- S2 out-of-range test: train on E ∈ [0.1, 1.6], test on E ∈ [1.7, 1.95].
-- S3 sizes: **[OPEN]**.
-- Reject any reference trajectory whose relative energy error exceeds ≈1e-8.
-- **[PROPOSED]** format: `data/{system}_{split}.npz` with `states [N, T+1, d]`, `energy [N, T+1]` and `x0 [N, d]`, plus `meta.json` (system, Δt, tolerances, energy range, seed). Data is generated, not committed.
+- Energy ranges: S2 train/val/test on E ∈ [0.1, 1.6], plus an out-of-range test set `test_ood` on E ∈ [1.7, 1.95]. **[PROPOSED]** S1 uses the same [0.1, 1.6], because the proposal gives no S1 range.
+- S3 sizes and energy range: **[OPEN]**. `generate.py` refuses S3 until they are set.
+- Reject any reference trajectory whose relative energy error exceeds 1e-8, and redraw until the split is full; the count is in `meta.json`. On the Nov 24 data, no trajectory was rejected.
+- Format: `data/{system}_{split}.npz` with `states [N, T+1, d]`, `energy [N, T+1]`, `x0 [N, d]` and `t [T+1]`, plus `data/{system}_meta.json` (system, stored Δt, tolerances, energy ranges, seeds, rejection counts). Data is generated, not committed: `python -m whydrift.physics.generate --system s1`, then audit it with `python -m whydrift.physics.checks --system s1`.
 
 ## 4. Pipeline
 
